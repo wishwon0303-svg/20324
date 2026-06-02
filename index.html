@@ -151,23 +151,41 @@
 <script>
     let allData = [];
 
-    // 1. GitHub 저장소에 함께 올라간 data.json 로드
-    fetch('data.json')
-        .then(response => response.json())
-        .then(data => {
-            allData = data;
-            initGroupDropdown();
-        })
-        .catch(err => {
-            alert('데이터 파일을 불러오지 못했습니다. data.json 파일이 index.html과 같은 위치에 있는지 확인해 주세요.');
-            console.error(err);
-        });
+    // 💡 [대소문자 교정] 대문자 Data.json과 소문자 data.json 둘 다 안전하게 연동되도록 예외 처리 추적 가동
+    function loadData() {
+        fetch('data.json')
+            .then(response => {
+                if (!response.ok) throw new Error('소문자 파일 없음');
+                return response.json();
+            })
+            .then(data => {
+                allData = data;
+                initGroupDropdown();
+            })
+            .catch(() => {
+                // 소문자 파일 요청 실패 시, 대문자 Data.json으로 2차 백업 요청 시도
+                fetch('Data.json')
+                    .then(response => {
+                        if (!response.ok) throw new Error('대문자 파일도 없음');
+                        return response.json();
+                    })
+                    .then(data => {
+                        allData = data;
+                        initGroupDropdown();
+                    })
+                    .catch(err => {
+                        alert('데이터 파일(data.json 또는 Data.json)을 저장소에서 찾을 수 없습니다.');
+                        console.error(err);
+                    });
+            });
+    }
+
+    // 데이터 로드 실행
+    loadData();
 
     // 계열 드롭다운 초기화
     function initGroupDropdown() {
         const groupSelect = document.getElementById('groupSelect');
-        
-        // 고유 계열 추출 및 가나다순 정렬
         const groups = [...new Set(allData.map(item => item['단과대학/계열']))].sort();
         
         groupSelect.innerHTML = '<option value="">-- 계열을 선택하세요 --</option>';
@@ -178,11 +196,10 @@
             groupSelect.appendChild(opt);
         });
 
-        // 계열 변경 이벤트 리스너 연결
         groupSelect.addEventListener('change', onGroupChange);
     }
 
-    // 계열 선택 변경 시 학과 목록 동적 연동 (통합 없음)
+    // 계열 선택 변경 시 학과 목록 동적 연동 (학과 통합 없이 고유 나열)
     function onGroupChange(e) {
         const selectedGroup = e.target.value;
         const deptSelect = document.getElementById('deptSelect');
@@ -195,13 +212,11 @@
 
         deptSelect.innerHTML = '<option value="">-- 학과를 선택하세요 --</option>';
         
-        // 💡 [핵심 구현] 이름이 중복되는 학과라도 뭉치지 않고 하나씩 한 줄로 분리 나열
-        // json 내부 객체의 절대 고유 고유 인덱스 번호를 value값으로 매핑하여 추후 식별합니다.
         allData.forEach((item, index) => {
             if (item['단과대학/계열'] === selectedGroup) {
                 const opt = document.createElement('option');
                 opt.value = index; 
-                opt.textContent = item['학과(부)']; // 대학 접두사 필터를 거친 순수 학과명만 깔끔하게 노출
+                opt.textContent = item['학과(부)']; 
                 deptSelect.appendChild(opt);
             }
         });
@@ -221,14 +236,12 @@
 
         const target = allData[selectedIndex];
         
-        // 결과 창에 정제 데이터 적용 (대학 명칭 대신 '정보 출처' 변환 출력 구조 반영)
         document.getElementById('resUniv').textContent = target['대학'];
         document.getElementById('resGroup').textContent = target['단과대학/계열'];
         document.getElementById('resDept').textContent = target['학과(부)'];
         document.getElementById('resCore').textContent = "👉 " + target['핵심과목'];
         document.getElementById('resRecom').textContent = "👉 " + target['권장과목'];
 
-        // 결과 영역 시각화 활성화
         document.getElementById('resultArea').style.display = 'block';
     });
 </script>
