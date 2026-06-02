@@ -156,13 +156,9 @@
 <script>
     let allData = [];
 
-    // 데이터 로드 및 전체 공백 클리닝 작업 엔진
     function loadData() {
         fetch('data.json')
-            .then(response => {
-                if (!response.ok) throw new Error();
-                return response.json();
-            })
+            .then(response => { if (!response.ok) throw new Error(); return response.json(); })
             .then(data => { processAndInit(data); })
             .catch(() => {
                 fetch('Data.json')
@@ -175,7 +171,7 @@
             });
     }
 
-    // 💡 [핵심 교정] 데이터 연동 시 내부 모든 문자열의 유령 공백을 미리 완전히 청소합니다.
+    // 데이터 로드 및 텍스트 공백 청소
     function processAndInit(data) {
         allData = data.map(item => {
             return {
@@ -191,7 +187,7 @@
 
     loadData();
 
-    // 1단계 계열 선택창 채우기
+    // 1단계 계열 선택창 초기화
     function initGroupDropdown() {
         const groupSelect = document.getElementById('groupSelect');
         const groups = [...new Set(allData.map(item => item['단과대학/계열']))].sort();
@@ -207,7 +203,7 @@
         groupSelect.addEventListener('change', onGroupChange);
     }
 
-    // 2단계 학과 선택창 동적 연동 (중복 완전 박멸)
+    // 2단계 학과 선택창 동적 연동 (글자가 완전히 똑같은 항목은 100% 한 줄로 결합)
     function onGroupChange(e) {
         const selectedGroup = e.target.value;
         const deptSelect = document.getElementById('deptSelect');
@@ -220,21 +216,27 @@
 
         deptSelect.innerHTML = '<option value="">-- 학과를 선택하세요 --</option>';
         
-        // 데이터 정제가 미리 처리되었으므로 Set 구조가 완벽하게 작동합니다.
-        const filteredDepts = allData.filter(item => item['단과대학/계열'] === selectedGroup);
-        const uniqueDeptNames = [...new Set(filteredDepts.map(item => item['학과(부)']))].sort();
+        // 1. 해당 계열에 속하는 학과들만 필터링
+        const filtered = allData.filter(item => item['단과대학/계열'] === selectedGroup);
         
+        // 💡 [핵심 교정 로직] 글자 기준 중복 완전 제거
+        // 엑셀 원본 텍스트 형태 그대로(예: '간호대학') 가나다순 중복을 제거하여 단 하나만 남깁니다.
+        const uniqueDeptNames = [...new Set(filtered.map(item => item['학과(부)']))].sort();
+        
+        // 선택창 드롭다운에 하나씩만 등록 (Value와 Text를 동일한 학과 명칭으로 매핑)
         uniqueDeptNames.forEach(deptName => {
-            const opt = document.createElement('option');
-            opt.value = deptName; 
-            opt.textContent = deptName; 
-            deptSelect.appendChild(opt);
+            if(deptName) { // 빈칸 방지
+                const opt = document.createElement('option');
+                opt.value = deptName; 
+                opt.textContent = deptName; 
+                deptSelect.appendChild(opt);
+            }
         });
 
         deptSelect.disabled = false;
     }
 
-    // [조회하기] 버튼 클릭 시 매칭되는 모든 정보 일괄 출력
+    // [조회하기] 버튼 클릭 이벤트
     document.getElementById('searchBtn').addEventListener('click', () => {
         const groupSelect = document.getElementById('groupSelect');
         const deptSelect = document.getElementById('deptSelect');
@@ -247,7 +249,8 @@
             return;
         }
 
-        // 선택된 계열과 학과명에 부합하는 모든 레코드 수집
+        // 💡 [핵심 구현] 선택한 '계열'과 '학과명'이 완전히 일치하는 모든 대학의 정보를 일괄 수집
+        // 선택창에는 '간호대학'이 하나만 뜨지만, 클릭 시 내부적으로 해당 계열의 모든 '간호대학' 레코드를 다 긁어옵니다.
         const matchedRecords = allData.filter(item => 
             item['단과대학/계열'] === selectedGroup && item['학과(부)'] === selectedDeptName
         );
@@ -256,7 +259,7 @@
         const cardsContainer = document.getElementById('cardsContainer');
         cardsContainer.innerHTML = '';
 
-        // 매칭된 정보의 개수만큼 카드를 나열
+        // 수집된 모든 대학 기준을 하단에 개별 카드로 생성 (통합 출력)
         matchedRecords.forEach(target => {
             const card = document.createElement('div');
             card.className = 'university-card';
