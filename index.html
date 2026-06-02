@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>대학 자연계열 이수권장과목 조회 시스템</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background-color: #F5F6FA;
+            color: #2C3E50;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 600px;
+            width: 100%;
+            background: #FFFFFF;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-top: 20px;
+            box-sizing: border-box;
+        }
+        h1 {
+            font-size: 22px;
+            text-align: center;
+            margin-bottom: 5px;
+            color: #2C3E50;
+        }
+        p.subtitle {
+            text-align: center;
+            font-size: 14px;
+            color: #7F8C8D;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        select {
+            width: 100%;
+            padding: 12px;
+            font-size: 15px;
+            border: 1px solid #BDC3C7;
+            border-radius: 6px;
+            background-color: #FAFAFA;
+            outline: none;
+            cursor: pointer;
+        }
+        select:focus {
+            border-color: #3498DB;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: bold;
+            background-color: #3498DB;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #2980B9;
+        }
+        .result-area {
+            margin-top: 30px;
+            padding: 20px;
+            border-top: 2px dashed #BDC3C7;
+            display: none;
+        }
+        .result-line {
+            font-size: 15px;
+            margin-bottom: 12px;
+            line-height: 1.6;
+        }
+        .result-title {
+            font-weight: bold;
+            color: #2C3E50;
+        }
+        .box {
+            background-color: #F8F9FA;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 5px;
+            border-left: 4px solid #3498DB;
+        }
+        .box.core { border-left-color: #E74C3C; }
+        .box.recom { border-left-color: #E67E22; }
+        .notice {
+            font-size: 12px;
+            color: #7F8C8D;
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🎓 이수권장과목 조회 시스템</h1>
+    <p class="subtitle">원하는 계열과 학과를 선택하여 권장과목을 확인하세요.</p>
+
+    <div class="form-group">
+        <label>🏫 1단계 계열 선택</label>
+        <select id="groupSelect">
+            <option value="">데이터를 불러오는 중입니다...</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>🎓 2단계 학과 선택</label>
+        <select id="deptSelect" disabled>
+            <option value="">계열을 먼저 선택해 주세요</option>
+        </select>
+    </div>
+
+    <button id="searchBtn">선택한 학과 과목 조회하기</button>
+
+    <div class="result-area" id="resultArea">
+        <div class="result-line"><span class="result-title">ℹ️ 정보 출처 :</span> <span id="resUniv"></span></div>
+        <div class="result-line"><span class="result-title">📂 소속 계열 :</span> <span id="resGroup"></span></div>
+        <div class="result-line"><span class="result-title">🎓 학 과 부 :</span> <span id="resDept"></span></div>
+        
+        <div class="result-line" style="margin-top: 20px;">
+            <span class="result-title" style="color: #E74C3C;">🔴 [핵심과목] (필수 이수 권장)</span>
+            <div class="box core" id="resCore"></div>
+        </div>
+        
+        <div class="result-line">
+            <span class="result-title" style="color: #E67E22;">🟠 [권장과목] (가급적 이수 권장)</span>
+            <div class="box recom" id="resRecom"></div>
+        </div>
+        
+        <p class="notice">※ 고교 내 미개설 과목은 외부 공동교육과정 이수를 권장합니다.</p>
+    </div>
+</div>
+
+<script>
+    let allData = [];
+
+    // 1. GitHub 저장소에 함께 올라간 data.json 로드
+    fetch('data.json')
+        .then(response => response.json())
+        .then(data => {
+            allData = data;
+            initGroupDropdown();
+        })
+        .catch(err => {
+            alert('데이터 파일을 불러오지 못했습니다. data.json 파일이 index.html과 같은 위치에 있는지 확인해 주세요.');
+            console.error(err);
+        });
+
+    // 계열 드롭다운 초기화
+    function initGroupDropdown() {
+        const groupSelect = document.getElementById('groupSelect');
+        
+        // 고유 계열 추출 및 가나다순 정렬
+        const groups = [...new Set(allData.map(item => item['단과대학/계열']))].sort();
+        
+        groupSelect.innerHTML = '<option value="">-- 계열을 선택하세요 --</option>';
+        groups.forEach(group => {
+            const opt = document.createElement('option');
+            opt.value = group;
+            opt.textContent = group;
+            groupSelect.appendChild(opt);
+        });
+
+        // 계열 변경 이벤트 리스너 연결
+        groupSelect.addEventListener('change', onGroupChange);
+    }
+
+    // 계열 선택 변경 시 학과 목록 동적 연동 (통합 없음)
+    function onGroupChange(e) {
+        const selectedGroup = e.target.value;
+        const deptSelect = document.getElementById('deptSelect');
+        
+        if (!selectedGroup) {
+            deptSelect.innerHTML = '<option value="">계열을 먼저 선택해 주세요</option>';
+            deptSelect.disabled = true;
+            return;
+        }
+
+        deptSelect.innerHTML = '<option value="">-- 학과를 선택하세요 --</option>';
+        
+        // 💡 [핵심 구현] 이름이 중복되는 학과라도 뭉치지 않고 하나씩 한 줄로 분리 나열
+        // json 내부 객체의 절대 고유 고유 인덱스 번호를 value값으로 매핑하여 추후 식별합니다.
+        allData.forEach((item, index) => {
+            if (item['단과대학/계열'] === selectedGroup) {
+                const opt = document.createElement('option');
+                opt.value = index; 
+                opt.textContent = item['학과(부)']; // 대학 접두사 필터를 거친 순수 학과명만 깔끔하게 노출
+                deptSelect.appendChild(opt);
+            }
+        });
+
+        deptSelect.disabled = false;
+    }
+
+    // [조회하기] 버튼 이벤트
+    document.getElementById('searchBtn').addEventListener('click', () => {
+        const deptSelect = document.getElementById('deptSelect');
+        const selectedIndex = deptSelect.value;
+
+        if (!selectedIndex) {
+            alert('조회할 세부 학과를 먼저 선택해 주세요.');
+            return;
+        }
+
+        const target = allData[selectedIndex];
+        
+        // 결과 창에 정제 데이터 적용 (대학 명칭 대신 '정보 출처' 변환 출력 구조 반영)
+        document.getElementById('resUniv').textContent = target['대학'];
+        document.getElementById('resGroup').textContent = target['단과대학/계열'];
+        document.getElementById('resDept').textContent = target['학과(부)'];
+        document.getElementById('resCore').textContent = "👉 " + target['핵심과목'];
+        document.getElementById('resRecom').textContent = "👉 " + target['권장과목'];
+
+        // 결과 영역 시각화 활성화
+        document.getElementById('resultArea').style.display = 'block';
+    });
+</script>
+</body>
+</html>
