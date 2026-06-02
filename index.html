@@ -156,23 +156,37 @@
 <script>
     let allData = [];
 
-    // 대소문자 Data.json 호환성 처리 로드 함수
+    // 데이터 로드 및 전체 공백 클리닝 작업 엔진
     function loadData() {
         fetch('data.json')
             .then(response => {
                 if (!response.ok) throw new Error();
                 return response.json();
             })
-            .then(data => { allData = data; initGroupDropdown(); })
+            .then(data => { processAndInit(data); })
             .catch(() => {
                 fetch('Data.json')
                     .then(response => response.json())
-                    .then(data => { allData = data; initGroupDropdown(); })
+                    .then(data => { processAndInit(data); })
                     .catch(err => {
                         alert('데이터 파일(data.json)을 저장소에서 찾을 수 없습니다.');
                         console.error(err);
                     });
             });
+    }
+
+    // 💡 [핵심 교정] 데이터 연동 시 내부 모든 문자열의 유령 공백을 미리 완전히 청소합니다.
+    function processAndInit(data) {
+        allData = data.map(item => {
+            return {
+                "대학": String(item['대학'] || '').trim(),
+                "단과대학/계열": String(item['단과대학/계열'] || '').trim(),
+                "학과(부)": String(item['학과(부)'] || '').trim(),
+                "핵심과목": String(item['핵심과목'] || '').trim(),
+                "권장과목": String(item['권장과목'] || '').trim()
+            };
+        });
+        initGroupDropdown();
     }
 
     loadData();
@@ -193,7 +207,7 @@
         groupSelect.addEventListener('change', onGroupChange);
     }
 
-    // 2단계 학과 선택창 동적 연동 (중복 이름 학과를 하나로 결합)
+    // 2단계 학과 선택창 동적 연동 (중복 완전 박멸)
     function onGroupChange(e) {
         const selectedGroup = e.target.value;
         const deptSelect = document.getElementById('deptSelect');
@@ -206,11 +220,10 @@
 
         deptSelect.innerHTML = '<option value="">-- 학과를 선택하세요 --</option>';
         
-        // 💡 [핵심 구현] 선택된 계열 내부에서 학과 이름만 추출해 중복 제거(Set) 후 가나다순 정렬
+        // 데이터 정제가 미리 처리되었으므로 Set 구조가 완벽하게 작동합니다.
         const filteredDepts = allData.filter(item => item['단과대학/계열'] === selectedGroup);
         const uniqueDeptNames = [...new Set(filteredDepts.map(item => item['학과(부)']))].sort();
         
-        // 중복 없이 깔끔하게 한 명칭씩만 드롭다운에 등록
         uniqueDeptNames.forEach(deptName => {
             const opt = document.createElement('option');
             opt.value = deptName; 
@@ -234,17 +247,16 @@
             return;
         }
 
-        // 💡 [핵심 구현] 현재 선택된 계열 + 학과명과 일치하는 '모든 대학 데이터' 컬렉션 추출
+        // 선택된 계열과 학과명에 부합하는 모든 레코드 수집
         const matchedRecords = allData.filter(item => 
             item['단과대학/계열'] === selectedGroup && item['학과(부)'] === selectedDeptName
         );
 
-        // 메인 제목 설정 및 결과 컨테이너 비우기
         document.getElementById('mainDeptTitle').textContent = selectedDeptName;
         const cardsContainer = document.getElementById('cardsContainer');
         cardsContainer.innerHTML = '';
 
-        // 매칭된 대학들의 개수만큼 반복하며 카드를 화면에 동적 생성
+        // 매칭된 정보의 개수만큼 카드를 나열
         matchedRecords.forEach(target => {
             const card = document.createElement('div');
             card.className = 'university-card';
@@ -264,7 +276,6 @@
             cardsContainer.appendChild(card);
         });
 
-        // 결과 영역 시각화
         document.getElementById('resultArea').style.display = 'block';
     });
 </script>
